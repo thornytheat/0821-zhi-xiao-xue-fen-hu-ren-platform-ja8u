@@ -37,7 +37,14 @@
   <form id="review" hidden>
     <p id="run-status"></p><label for="note">复核意见</label>
     <textarea id="note" name="note" minlength="3" maxlength="200" required></textarea>
-    <div class="review-actions"><button name="decision" value="HELD">暂缓</button><button class="action" name="decision" value="APPROVED">签发</button></div>
+    <div class="review-actions">
+      <button name="decision" value="HELD" data-scope="case">暂缓本申请</button>
+      <button class="action" name="decision" value="APPROVED" data-scope="case">签发本申请</button>
+    </div>
+    <div class="review-actions">
+      <button name="decision" value="HELD" data-scope="batch">整批暂缓</button>
+      <button class="action" name="decision" value="APPROVED" data-scope="batch">整批签发</button>
+    </div>
     <a id="evidence">下载复核证据</a>
   </form>
 </aside>

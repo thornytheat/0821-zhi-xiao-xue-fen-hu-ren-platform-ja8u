@@ -26,15 +26,23 @@ function announce(text, failure = false) {
 
 function draw() {
   if (!report) return;
-  snapshot(report, selected, stage);
+  snapshot(report, selected, stage, batch?.decisions || {});
   visualize(report, selected);
   for (const button of stages) button.setAttribute('aria-pressed',String(button.dataset.stage===stage));
   document.querySelector('#panel-title').textContent = stages.find(button => button.dataset.stage===stage)?.textContent || '运行对账';
   detail.hidden = !batch;
   if (batch) {
     document.querySelector('#run-status').textContent = `${batch.id.slice(0,10)} · ${batch.status} · r${batch.revision}`;
-    detail.querySelector('[value="APPROVED"]').disabled = !report.balance.releasable || batch.status==='APPROVED';
-    detail.querySelector('[value="HELD"]').disabled = batch.status==='APPROVED';
+    const current = report.cases?.find(row => row.case === selected);
+    const decided = batch.decisions?.[selected];
+    const finalized = batch.status === 'APPROVED';
+    for (const button of detail.querySelectorAll('[data-scope="case"]')) {
+      button.disabled = finalized || decided === 'APPROVED' || (button.value === 'APPROVED' && !current?.releasable);
+      button.textContent = `${button.value === 'APPROVED' ? '签发' : '暂缓'} ${selected || ''}`.trim();
+    }
+    for (const button of detail.querySelectorAll('[data-scope="batch"]')) {
+      button.disabled = finalized || (button.value === 'APPROVED' && !report.balance.releasable);
+    }
     evidence.href = `/api/runs/${batch.id}/evidence`;
   }
 }
@@ -99,8 +107,11 @@ detail.addEventListener('submit',event=>{
   event.preventDefault();
   perform(async()=>{
     const payload={status:event.submitter.value,revision:batch.revision,note:detail.elements.note.value};
+    if (event.submitter.dataset.scope === 'case') payload.cases={[selected]:event.submitter.value};
     const result=await request(`/api/runs/${batch.id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    show(result,true); announce(result.status==='APPROVED'?'批次已签发':'批次已暂缓'); await refresh();
+    show(result,true);
+    const approved = result.decisions?.[selected] === 'APPROVED' || (!payload.cases && result.status==='APPROVED');
+    announce(approved?'申请已签发':'申请已暂缓'); await refresh();
   });
 });
 preview(stage);

@@ -8,6 +8,6 @@ def artifact(run):
         'balance': run['report']['balance'],
         'cases': run['report']['cases'],
         'intake': run['report']['intake'],
-        'review': {key:run[key] for key in ('status','revision','note','reviewed')},
+        'review': {key:run[key] for key in ('status','revision','note','reviewed','decisions')},
     }
     return (json.dumps(packet, ensure_ascii=False,sort_keys=True,indent=2)+'\n').encode()

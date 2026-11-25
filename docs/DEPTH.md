@@ -11,7 +11,7 @@
 | M3 互认分配 | 查看业务计算结果 | `POST /api/stages/calculate` | `app/modules/calculate.py` | `tests/test_calculate.py` |
 | M4 培养要求核验 | 查看签收判定 | `POST /api/stages/policy` | `app/modules/policy.py` | `tests/test_policy.py` |
 | M5 运行对账 | 对照输入、采信和隔离行 | `POST /api/stages/balance` | `app/modules/reconcile.py` | `tests/test_reconcile.py` |
-| M6 批次复核 | 执行批次并签发或暂缓 | `POST /api/runs、PATCH /api/runs/<id>` | `app/review/service.py` | `tests/test_review.py` |
+| M6 批次复核 | 逐个申请签发或暂缓 | `POST /api/runs、PATCH /api/runs/<id>` | `app/review/service.py` | `tests/test_review.py`、`tests/test_applications.py` |
 | M7 证据交付 | 下载复核清单 | `GET /api/runs/<id>/evidence` | `app/evidence/render.py` | `tests/test_evidence.py` |
 
 ## 输入陷阱
@@ -29,6 +29,17 @@
 | TRAP-16 | 引号未闭合时拒收文件 | `app/intake/reader.py` | `tests/test_intake.py::test_unclosed_quote_invalidates_source` |
 | TRAP-18 | 区分空文件、全空白和仅表头 | `app/intake/reader.py` | `tests/test_intake.py::test_empty_states_have_distinct_causes` |
 | TRAP-26 | 拒绝旧版本复核 | `app/review/store.py` | `tests/test_review.py::test_review_optimistic_lock` |
+
+## 复核规则
+
+| 编号 | 规则 | 处理 | 测试 |
+|---|---|---|---|
+| REV-01 | 部分申请核清时先签已核清申请 | `app/review/service.py` | `tests/test_applications.py::test_partial_application_can_be_signed_first` |
+| REV-02 | 同一记录号指向两份申请，两份都暂缓 | `app/intake/service.py` | `tests/test_applications.py::test_record_shared_by_two_applications_holds_both` |
+| REV-03 | 坏行找不到所属申请，整批暂缓 | `app/intake/service.py` | `tests/test_applications.py::test_unattributed_bad_row_holds_whole_batch` |
+| REV-04 | 坏行属于某申请时只暂缓该申请 | `app/intake/service.py` | `tests/test_applications.py::test_bad_row_inside_application_holds_only_that_application` |
+| REV-05 | 新版材料已生效则拒绝按旧材料签发 | `app/review/store.py` | `tests/test_applications.py::test_corrected_material_refuses_stale_checkout` |
+| REV-06 | 更正与签发并发时串行判定 | `app/review/store.py` | `tests/test_applications.py::test_simultaneous_correction_and_signing_never_cross` |
 
 ## 领域反例
 

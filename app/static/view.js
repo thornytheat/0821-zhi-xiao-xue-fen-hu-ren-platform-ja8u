@@ -1,7 +1,8 @@
 import {element} from './client.js';
 
 const labels = {READY:'通过', MISMATCH:'数值不符', PENDING:'待复核', APPROVED:'已签发', HELD:'已暂缓',
-  INVALID_EQUIVALENCE:'互认条件无效', CREDIT_SHORTFALL:'学分不足', TICKET_MISMATCH:'联单信息不符',
+  INVALID_EQUIVALENCE:'互认条件无效', CREDIT_SHORTFALL:'学分不足', RECORD_CASE_CONFLICT:'记录号跨申请冲突',
+  STALE_MATERIAL:'材料已更正', TICKET_MISMATCH:'联单信息不符',
   CONTAMINATION_LIMIT:'杂质率超限', DATA_POSITION_CONFLICT:'数据位置冲突', DANGLING_POSITION:'悬空位置删除',
   LINEAGE_CYCLE:'字段依赖成环', LABEL_TOO_LOW:'分级低于来源', DEPENDENCY_CYCLE:'任务依赖成环',
   NO_FEASIBLE_SLOT:'无可用时隙', PICKUP_BEFORE_ENTRY:'领取早于入柜', DWELL_RATE_MISMATCH:'滞留率不符',
@@ -31,7 +32,7 @@ const valueLabels = {RPD:'相对偏差', ABSOLUTE:'绝对差', BOTH_ND:'双方�
   MISSING_REQUIRED:'缺少必填字段', AUTHORITY_CONFLICT:'权威编号冲突', CANNOT_LINK:'禁止合并',
   UPSTREAM_UNSCHEDULED:'上游未排程', NO_FEASIBLE_SLOT:'无可用时隙', LEGAL_HOLD:'合法保全',
   RECLAIM:'可回收', LIVE_SNAPSHOT:'活动快照', TRANSPORT:'运输中', DELIVERED:'已签收', CANCELLED:'已取消'};
-const headers = ['业务分组', '输入行', '计算值', '参考值', '判定'];
+const headers = ['业务分组', '输入行', '计算值', '参考值', '判定', '复核'];
 
 export function badge(status) {
   return element('span', labels[status] || status, {class:'badge', 'data-result':status, title: status});
@@ -71,7 +72,7 @@ function detailValue(value) {
   return list.children.length ? list : document.createTextNode('—');
 }
 
-export function snapshot(report, selected, stage) {
+export function snapshot(report, selected, stage, decisions = {}) {
   const stats = report.intake;
   document.querySelector('[data-metric="input"]').textContent = stats.input;
   document.querySelector('[data-metric="accepted"]').textContent = stats.accepted;
@@ -95,15 +96,20 @@ export function snapshot(report, selected, stage) {
       const button = element('button',row.case,{type:'button','data-case':row.case,'aria-pressed':String(row.case===selected)});
       tr.insertCell().append(button);
       [row.records.length, row.measure ? `${row.measure.value} ${row.measure.unit}` : '—', row.measure ? `${row.measure.expected} ${row.measure.unit}` : '—'].forEach(value=>tr.insertCell().textContent=value);
-      tr.insertCell().append(badge(row.status));
+      const state = row.holds?.length ? 'HELD' : row.status;
+      const verdict = tr.insertCell();
+      verdict.append(badge(state));
+      if (row.holds?.length) verdict.append(element('span', ` ${row.holds.join('、')}`, {class:'chart-note'}));
+      tr.insertCell().append(badge(decisions[row.case] || 'PENDING'));
     }
   }
   table.createTHead().append(head);
   const picked = report.cases?.find(row=>row.case===selected);
   document.querySelector('#detail-title').textContent = picked ? `分组 ${picked.case}` : '采信摘要';
-  const shown = picked ? picked.measure?.evidence ?? picked.prep?.details ?? {原因:picked.status} : stats.reasons;
+  const shown = picked ? (picked.holds?.length ? {暂缓原因:picked.holds, ...(picked.measure?.evidence ?? {})} : picked.measure?.evidence ?? picked.prep?.details ?? {原因:picked.status}) : stats.reasons;
   document.querySelector('#detail').replaceChildren(detailValue(shown));
-  document.querySelector('#counts').textContent = report.balance ? `行数 ${report.balance.accounted}/${report.balance.input} · ${report.balance.ready} 组通过` : `采信 ${stats.accepted} 行 · 隔离 ${stats.rejected} 行`;
+  const summary = report.balance ? `行数 ${report.balance.accounted}/${report.balance.input} · ${report.balance.ready} 组通过 · ${report.balance.signable} 组可签发` : `采信 ${stats.accepted} 行 · 隔离 ${stats.rejected} 行`;
+  document.querySelector('#counts').textContent = report.balance?.blocked ? `${summary} · 坏行无归属，整批暂缓` : summary;
 }
 
 export function history(items, active) {
